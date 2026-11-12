@@ -1,0 +1,6 @@
+{
+  "name": "Plataforma Pedagógica Docente",
+  "description": "Plataforma educativa integral para la gestión pedagógica de cursos, estudiantes, grupos de trabajo, actividades teóricas/prácticas y sistema de calificaciones con rúbricas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

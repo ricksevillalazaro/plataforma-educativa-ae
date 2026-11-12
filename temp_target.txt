@@ -1,0 +1,127 @@
+      if (apiKey) {
+        // Try Gemini models with automatic error handling
+        const modelsToTry = ['gemini-3.7-flash', 'gemini-flash-latest'];
+
+        for (const modelName of modelsToTry) {
+          try {
+            const ai = new GoogleGenAI({
+              apiKey,
+              httpOptions: {
+                headers: {
+                  'User-Agent': 'aistudio-build',
+                },
+              },
+            });
+
+            const prompt = `
+Actúa como un Diseñador Curricular y Pedagogo Experto.
+Genera un recurso de material didáctico integral, estructurado y altamente comprensible para los estudiantes, basándote en las directrices del docente y las fuentes consultadas.
+
+INFORMACIÓN DE LA SESIÓN:
+- Asignatura: ${subject || courseName || 'General'}
+- Curso / Grado: ${courseName || ''} - ${gradeLevel || 'Secundaria'}
+- Semana / Sesión: Semana ${weekNumber || 1}, Sesión ${sessionNumber || 1}
+- Título de la Sesión: ${sessionTitle}
+- Tema Central: ${topic}
+- Propósito Pedagógico: ${pedagogicalGoal || 'Desarrollar comprensión profunda y aplicación práctica'}
+- Pauta DUA (Diseño Universal): ${duaStrategy || 'Múltiples formas de representación y acción'}
+- Estilo Pedagógico Solicitado: ${pedagogicalStyle}
+
+ORIENTACIÓN / DESCRIPCIÓN DEL DOCENTE:
+${description || 'Estructurar el tema con claridad, analogías intuitivas y ejercicios aplicados paso a paso.'}
+
+FUENTES / ENLACES INGRESADOS POR EL DOCENTE:
+${sourceUrls.length > 0 ? sourceUrls.map((url: string, i: number) => `${i + 1}. ${url}`).join('\n') : 'Sin URLs externas específicas (utilizar conocimiento pedagógico especializado).'}
+
+REQUISITOS DEL CONTENIDO DIDÁCTICO PARA ALUMNOS:
+1. Resumen introductorio motivador y cercano para los alumnos.
+2. Marco teórico y conceptual bien estructurado (3 a 5 párrafos ricos con subtítulos, explicaciones visuales/diagramas en texto y conceptos clave definidos con precisión).
+3. Conceptos clave (glosario esencial de 3 a 5 términos con definiciones concisas).
+4. Ejemplos prácticos aplicados a la vida real (2 a 3 ejemplos detallados con escenario, paso a paso de resolución y lección/conclusión clave).
+5. Actividades o desafíos para los alumnos (2 actividades motivadoras individuales o grupales con instrucciones y entregable).
+6. Preguntas de autoevaluación o comprobación de lectura (3 preguntas de opción múltiple con 4 opciones cada una, índice de respuesta correcta [0-3], explicación didáctica clara y una pista útil).
+7. Bibliografía y enlaces comentados (sintetizar las fuentes provistas o sugerir referencias confiables).
+
+Genera el resultado en un JSON estricto con la siguiente estructura:
+{
+  "summary": "...",
+  "theoreticalFramework": {
+    "title": "...",
+    "content": "...",
+    "keyConcepts": [
+      { "term": "...", "definition": "...", "category": "..." }
+    ]
+  },
+  "practicalExamples": [
+    {
+      "title": "...",
+      "scenario": "...",
+      "stepByStep": ["Paso 1: ...", "Paso 2: ..."],
+      "takeaway": "...",
+      "codeSnippetOrFormula": "..."
+    }
+  ],
+  "studentActivities": [
+    {
+      "id": "act-1",
+      "title": "...",
+      "instructions": "...",
+      "durationMinutes": 25,
+      "modality": "Parejas",
+      "deliverable": "..."
+    }
+  ],
+  "checkUnderstandingQuestions": [
+    {
+      "id": "q-1",
+      "question": "...",
+      "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+      "correctAnswerIndex": 0,
+      "explanation": "...",
+      "hint": "..."
+    }
+  ],
+  "sourcesConsulted": [
+    { "title": "...", "url": "...", "description": "..." }
+  ],
+  "rawMarkdown": "..."
+}
+`;
+
+            const response = await ai.models.generateContent({
+              model: modelName,
+              contents: prompt,
+              config: {
+                responseMimeType: 'application/json',
+              },
+            });
+
+            const textResponse = response.text || '{}';
+            const parsedData = JSON.parse(textResponse);
+
+            return res.json({
+              success: true,
+              didacticContent: {
+                generatedAt: new Date().toISOString(),
+                sourceUrls,
+                teacherPrompt: description,
+                pedagogicalStyle,
+                summary: parsedData.summary || `Contenido didáctico generado para la sesión: ${sessionTitle}`,
+                theoreticalFramework: parsedData.theoreticalFramework || {
+                  title: topic,
+                  content: `Fundamentos de ${topic}`,
+                  keyConcepts: []
+                },
+                practicalExamples: parsedData.practicalExamples || [],
+                studentActivities: parsedData.studentActivities || [],
+                checkUnderstandingQuestions: parsedData.checkUnderstandingQuestions || [],
+                sourcesConsulted: parsedData.sourcesConsulted || sourceUrls.map((u: string) => ({ title: 'Fuente ingresada por el docente', url: u })),
+                rawMarkdown: parsedData.rawMarkdown || ''
+              }
+            });
+          } catch (geminiError: any) {
+            console.warn(`Attempt with ${modelName} encountered rate limit / overload. Trying fallback options.`);
+            // Continue loop to try next model or gracefully fallback
+          }
+        }
+      }
